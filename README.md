@@ -1,2 +1,2 @@
 # Price Comparer
-This project is a website that allows users to compare prices of grocery items across multiple grocery stores within a selected location. The goal is to help consumers on a budget make informed shopping decisions.
+This project is a website that allows users to compare grocery prices across multiple stores within a selected location. By aggregating up-to-date pricing data from various retailers, the site helps consumers make informed shopping decisions, save money, and plan their purchases more efficiently. Stakeholders will have an opportunity to enter a growing market focused on digital price comparison and consumer analytics and retailers will gain visibility to cost-conscious consumers.
