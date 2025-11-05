@@ -22,9 +22,12 @@
   },
   "homepage": "https://github.com/1985lxw/price-comparer#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.79.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jest": "^30.2.0",
-    "node": "^25.1.0"
+    "node": "^25.1.0",
+    "node.js": "^0.0.1-security"
   }
 }
