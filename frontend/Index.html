@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Price Comparer - App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React UMD and Babel for in browser JSX -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <div id="root"></div>
+
+  <script>
+    (function(){
+      try {
+        const raw = localStorage.getItem('pc_auth');
+        if (!raw) { window.location.replace('./login.html'); return; }
+        const auth = JSON.parse(raw);
+        if (!auth || !(auth.mode === 'user' || auth.mode === 'guest')) {
+          window.location.replace('./login.html');
+        }
+      } catch (e) {
+        window.location.replace('./login.html');
+      }
+    })();
+  </script>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useState } = React;
+
+    const STORAGE_KEYS = { auth: 'pc_auth', location: 'pc_location', shopping: 'pc_shopping_list' };
+    const STORES = {
+      '01003': ['Big Basket Amherst', 'Stop and Save', 'Value Mart'],
+      '10001': ['Gotham Grocer', 'Uptown Foods', 'Eastside Fresh'],
+      '02139': ['Charles Market', 'Cam Square Foods', 'Riverbank Grocer']
+    };
+
+    const saveLS = (k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
+    const readLS = (k,f)=>{ try{ const r=localStorage.getItem(k); return r?JSON.parse(r):f; }catch{ return f; } };
+    const fmt = n => new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).format(n);
+
+    function Button({children, className, ...props}){
+      return (
+        <button
+          className={[
+            'inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium shadow-sm',
+            'bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-400',
+            className
+          ].filter(Boolean).join(' ')}
+          {...props}
+        >
+          {children}
+        </button>
+      );
+    }
+    function Input(props){
+      return <input className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-400" {...props} />;
+    }
+    function Select(props){
+      return <select className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-400" {...props} />;
+    }
+    function Card({children, className}){
+      return <div className={["rounded-2xl border border-slate-200 bg-white p-4 shadow-sm", className].filter(Boolean).join(' ')}>{children}</div>;
+    }
+
+    function App(){
+      const [auth] = useState(() => readLS(STORAGE_KEYS.auth, {mode:'guest', user:null}));
+      const [zip, setZip] = useState(() => readLS(STORAGE_KEYS.location, '01003'));
+      const [query, setQuery] = useState('');
+      const [shopping, setShopping] = useState(() => readLS(STORAGE_KEYS.shopping, []));
+      const [showList, setShowList] = useState(false);
+      const [lastSearch, setLastSearch] = useState('');
+
+      useEffect(()=> saveLS(STORAGE_KEYS.location, zip), [zip]);
+      useEffect(()=> saveLS(STORAGE_KEYS.shopping, shopping), [shopping]);
+
+      const stores = useMemo(()=> STORES[zip] || [], [zip]);
+      const total = useMemo(()=> shopping.reduce((s,it)=> s + (it.price || 0), 0), [shopping]);
+
+      function handleSearch(){
+        if (!query.trim()) return;
+        // no real results right now
+        setLastSearch(query.trim());
+      }
+
+      function logout(){
+        localStorage.removeItem('pc_auth');
+        window.location.replace('./login.html');
+      }
+
+      return (
+        <div className="min-h-screen">
+          <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-white">$</div>
+                <div>
+                  <div className="text-sm font-semibold">Price Comparer</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select aria-label="Zip selector" value={zip} onChange={e=>setZip(e.target.value)}>
+                  {Object.keys(STORES).map(code => <option key={code} value={code}>{code}</option>)}
+                </Select>
+                <Button onClick={()=>setShowList(true)}>Shopping List ({shopping.length})</Button>
+                {auth.mode==='guest' ? (
+                  <a href="./login.html" className="rounded-2xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Log in</a>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="hidden text-sm text-slate-700 sm:block">Hi {auth.user?.name || 'User'}</span>
+                    <button onClick={logout} className="rounded-2xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Log out</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+
+          <main className="mx-auto max-w-6xl px-4 pb-24 pt-8">
+            <Card className="mb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm">Search items</label>
+                  <Input
+                    placeholder="Try eggs, milk, bread"
+                    value={query}
+                    onChange={e=>setQuery(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter') handleSearch(); }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button onClick={handleSearch}>Search</Button>
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-slate-500">Stores for {zip}: {stores.join(', ') || 'None'}</div>
+              {lastSearch && (
+                <div className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
+                  Searched for "{lastSearch}". Price results are not implemented yet.
+                </div>
+              )}
+            </Card>
+          </main>
+
+          {showList && (
+            <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40">
+              <div className="h-full w-full max-w-lg overflow-y-auto bg-white p-4 shadow-xl">
+                <div className="mb-3 flex items-start justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">Shopping List</h2>
+                    <div className="text-xs text-slate-500">Items saved on this device</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={()=>{
+                      const lines = shopping.map(r => `${r.title || 'Item'} @ ${r.store || ''}`).join('%0A');
+                      const body = `My shopping list%0A%0A${lines}%0A%0ATotal: ${fmt(total)}`;
+                      window.location.href = `mailto:?subject=Shopping list&body=${body}`;
+                    }} className="rounded-2xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">Email</button>
+                    <button onClick={()=>setShowList(false)} className="rounded-2xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">Close</button>
+                  </div>
+                </div>
+
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="text-sm">Total: <span className="font-semibold">{fmt(total)}</span></div>
+                  <button onClick={()=>setShopping([])} className="text-sm text-rose-600 hover:underline">Clear all</button>
+                </div>
+
+                {shopping.length===0 ? (
+                  <Card><div className="text-sm text-slate-600">Your list is empty.</div></Card>
+                ) : (
+                  <div className="space-y-2">
+                    {shopping.map(item => (
+                      <Card key={item.id || item.title} className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{item.title || 'Item'}</div>
+                          <div className="text-xs text-slate-500">{item.store || ''}</div>
+                        </div>
+                        <button onClick={()=> setShopping(prev => prev.filter(x => x !== item))} className="rounded-2xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">Remove</button>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-6 border-t pt-4 text-xs text-slate-500">
+                  Security note: this demo stores list data locally in your browser only.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
