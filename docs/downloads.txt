@@ -1,2 +1,0 @@
-npm install express, node, cors, jest
-logged into supabase, has password
