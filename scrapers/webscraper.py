@@ -1,4 +1,3 @@
-# mock_web_scraper.py
 import json
 import os
 from pathlib import Path
