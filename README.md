@@ -152,10 +152,10 @@ Prices are separated from products for efficient updates and scalability.
 
 Create a .env file and define:
 
-DATABASE_URL=postgresql://user:password@localhost:5432/price_comparer
-EMAIL_API_KEY=your_email_service_key
-GOOGLE_OAUTH_CLIENT_ID=your_google_client_id
-GOOGLE_OAUTH_SECRET=your_google_secret
+- DATABASE_URL=postgresql://user:password@localhost:5432/price_comparer
+- EMAIL_API_KEY=your_email_service_key
+- GOOGLE_OAUTH_CLIENT_ID=your_google_client_id
+- GOOGLE_OAUTH_SECRET=your_google_secret
 
 
 4. **Run the backend**
@@ -177,7 +177,7 @@ http://localhost:3000
 
 Project Team:
 
-Xing-Wei/1985lxw					
-Aliya/aliyabedeen
-Nikshitha/nikshitharapolu			          
-Sravani/shiva-sravani-mudiyanur
+- Xing-Wei/1985lxw					
+- Aliya/aliyabedeen
+- Nikshitha/nikshitharapolu			          
+- Sravani/shiva-sravani-mudiyanur
