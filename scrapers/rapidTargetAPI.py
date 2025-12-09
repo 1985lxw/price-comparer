@@ -42,7 +42,19 @@ def get_nearby_stores(zip_code, count_limit=20, radius_miles=10, output_file="ne
 
 
 
-def search_by_keywords(keywords, store_id, output_file="search_results.json"):
+"""
+    Fetch products from Target API by keywords and store_id.
+    Only returns the products inside data->search->products.
+
+    Parameters:
+        keywords (str): Search keywords
+        store_id (str or int): Target store ID
+        output_file (str): JSON file to save the products
+
+    Returns:
+        list: List of products (dicts)
+"""
+def search_by_keywords(keywords, store_id, output_file="products_only.json"):
     url = "https://target13.p.rapidapi.com/searchByKeywords"
     querystring = {
         "keywords": keywords,
@@ -56,18 +68,31 @@ def search_by_keywords(keywords, store_id, output_file="search_results.json"):
 
     try:
         data = response.json()
+        products = data.get("data", {}).get("search", {}).get("products", [])
     except ValueError:
         print("⚠️ Response is not valid JSON, saving raw text instead")
-        data = {"raw_text": response.text}
+        products = [{"raw_text": response.text}]
 
+    # Save extracted products only
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-    
-    print(f"✅ Search results saved to {output_file}")
-    return data
+        json.dump(products, f, indent=4, ensure_ascii=False)
+
+    print(f"✅ Products saved to {output_file} (total: {len(products)})")
+    return products
 
 
 
+"""
+    Fetch product details from Target API and extract only product & price.
+
+    Parameters:
+        tcin (str or int): Target product identifier
+        store_id (str or int): Target store ID
+        output_file (str): Optional filename to save JSON output
+
+    Returns:
+        dict: Extracted product and price info
+"""
 def get_product_details(tcin, store_id, output_file=None):
     url = "https://target13.p.rapidapi.com/productDetails"
     querystring = {
@@ -80,24 +105,25 @@ def get_product_details(tcin, store_id, output_file=None):
 
     try:
         data = response.json()
+        # Extract only data -> product -> product & data -> product -> price
+        product_data = data.get("data", {}).get("product", {})
+        extracted = {
+            "product": product_data.get("product", {}),
+            "price": product_data.get("price", {})
+        }
     except ValueError:
         print("⚠️ Response is not valid JSON, saving raw text instead")
-        data = {"raw_text": response.text}
+        extracted = {"raw_text": response.text}
 
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+            json.dump(extracted, f, indent=4, ensure_ascii=False)
         print(f"✅ Product details saved to {output_file}")
 
-    return data
+    return extracted
 
 # if __name__ == "__main__":
-#     # Search for paper towels in store 1839
-#     search_results = search_by_keywords("paper towels", 1839, "paper_towels.json")
-
-#     # Get nearby stores in ZIP 01002
-#     nearby_stores = get_nearby_stores("01002", output_file="amherst_stores.json")
-    # tcin_example = "83935763"
-    # store_id_example = "3207"
-
-    # product_data = get_product_details(tcin_example, store_id_example, "product_83935763.json")
+#     tcin_example = "83935763"
+#     store_id_example = "1839"
+#     product_info = get_product_details(tcin_example, store_id_example, "product_83935763.json")
+#     print(product_info)
