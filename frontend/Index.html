@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Price Comparer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+
+<body class="bg-gray-50">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useState } = React;
+
+    const STORAGE_KEYS = {
+      auth: "pc_auth",
+      location: "pc_location",
+      shopping: "pc_shopping_list",
+    };
+
+    const saveLS = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+    const readLS = (k, f) => JSON.parse(localStorage.getItem(k) || JSON.stringify(f));
+    const fmt = (n) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(n);
+
+    function App() {
+      const [auth] = useState(() => readLS(STORAGE_KEYS.auth, { mode: "guest", user: null }));
+      const [zip, setZip] = useState(() => readLS(STORAGE_KEYS.location, "01003"));
+      const [newZip, setNewZip] = useState(zip);
+      const [query, setQuery] = useState("");
+      const [results, setResults] = useState([]);
+      const [shopping, setShopping] = useState(() => readLS(STORAGE_KEYS.shopping, []));
+      const [showList, setShowList] = useState(false);
+      const [showEmailModal, setShowEmailModal] = useState(false);
+      const [email, setEmail] = useState("");
+
+      // --- Pagination & Sorting ---
+      const [sortOrder, setSortOrder] = useState("asc"); // 'asc' or 'desc'
+      const [currentPage, setCurrentPage] = useState(1);
+      const resultsPerPage = 10;
+
+      useEffect(() => saveLS(STORAGE_KEYS.shopping, shopping), [shopping]);
+
+      async function handleSearch() {
+        if (!query.trim()) return;
+        try {
+          const resp = await fetch(`/api/search?query=${encodeURIComponent(query)}&zipcode=${zip}`);
+          setResults(await resp.json());
+          setCurrentPage(1); // reset to first page
+        } catch (err) { console.error(err); }
+      }
+
+      function applyZip() {
+        setZip(newZip);
+        saveLS(STORAGE_KEYS.location, newZip);
+        if (query.trim()) handleSearch();
+      }
+
+      function addToList(row) {
+        setShopping(prev => prev.find(x => x.id === row.id) ? prev : [...prev, { ...row, qty: 1 }]);
+      }
+
+      function removeFromList(id) {
+        setShopping(prev => prev.filter(x => x.id !== id));
+      }
+
+      function updateQty(id, delta) {
+        setShopping(prev => prev.map(item => item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item));
+      }
+
+      function logout() {
+        localStorage.removeItem("pc_auth");
+        window.location.replace("./login.html");
+      }
+
+      const totalCost = shopping.reduce((sum, i) => sum + i.price * i.qty, 0);
+      const toggleSort = () => setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+
+      // Sorted & paginated results
+      const sortedResults = [...results].sort((a, b) => sortOrder === "asc" ? a.price - b.price : b.price - a.price);
+      const totalPages = Math.ceil(sortedResults.length / resultsPerPage);
+      const paginatedResults = sortedResults.slice((currentPage - 1) * resultsPerPage, currentPage * resultsPerPage);
+
+      function emailList() {
+        alert(`Email sent to: ${email}`);
+        setShowEmailModal(false);
+        setEmail("");
+      }
+
+      function exportCSV() {
+        let csv = "Store,Product,Price,Qty,Total\n";
+        shopping.forEach(item => {
+          csv += `${item.store},${item.title},${item.price},${item.qty},${item.price * item.qty}\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "shopping_list.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+        alert("CSV exported successfully.");
+      }
+
+      async function exportPDF() {
+        if (shopping.length === 0) return alert("Shopping list is empty.");
+        const resp = await fetch("/api/export/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: shopping }),
+        });
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "shopping_list.pdf";
+        a.click();
+        window.URL.revokeObjectURL(url);
+        alert("PDF downloaded!");
+      }
+
+      return (
+        <div className="min-h-screen">
+          {/* HEADER */}
+          <header className="sticky top-0 z-40 bg-white shadow-sm">
+            <div className="mx-auto max-w-6xl flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-blue-600 text-white text-lg font-bold">$</div>
+                <span className="text-lg font-semibold text-gray-700">Price Comparer</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input type="text" className="rounded-xl border px-3 py-2 text-sm shadow-sm" value={newZip} onChange={(e) => setNewZip(e.target.value)} />
+                <button onClick={applyZip} className="px-3 py-2 rounded-xl bg-yellow-500 text-white text-sm hover:bg-yellow-600 shadow">Update ZIP</button>
+
+                <button onClick={() => setShowList(true)} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm hover:bg-blue-700 shadow">Shopping List ({shopping.length})</button>
+
+                {auth.mode === "guest" ? (
+                  <a href="./login.html" className="rounded-xl border px-4 py-2 text-sm shadow-sm hover:bg-gray-100">Log in</a>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-700">Hi {auth.user?.name || "User"}</span>
+                    <button onClick={logout} className="rounded-xl border px-4 py-2 text-sm shadow-sm hover:bg-gray-100">Log out</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+
+          {/* SEARCH + RESULTS */}
+          <main className="mx-auto max-w-6xl p-4">
+            <div className="flex gap-3 mb-3">
+              <input className="flex-1 rounded-xl border px-4 py-2 shadow-sm" placeholder="Search items..." value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} />
+              <button onClick={handleSearch} className="px-5 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow">Search</button>
+            </div>
+
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600 text-sm">{results.length} results found</span>
+              <button onClick={toggleSort} className="px-3 py-1 bg-gray-200 rounded-xl shadow-sm hover:bg-gray-300 text-sm">
+                Sort by Price: {sortOrder === "asc" ? "Low → High" : "High → Low"}
+              </button>
+            </div>
+
+            <div className="overflow-x-auto bg-white rounded-xl shadow">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-100 text-gray-700">
+                  <tr>
+                    <th className="p-3">Store</th>
+                    <th className="p-3">Product</th>
+                    <th className="p-3">Unit</th>
+                    <th className="p-3">Price</th>
+                    <th className="p-3">Last Updated</th>
+                    <th className="p-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedResults.length === 0 ? (
+                    <tr><td colSpan="6" className="p-6 text-center text-gray-400">No results yet.</td></tr>
+                  ) : (
+                    paginatedResults.map(row => (
+                      <tr key={row.id} className="border-t hover:bg-gray-50">
+                        <td className="p-3">{row.store}</td>
+                        <td className="p-3">{row.title}</td>
+                        <td className="p-3">{row.unitPrice}</td>
+                        <td className="p-3 font-medium">{fmt(row.price)}</td>
+                        <td className="p-3 text-gray-500">{row.lastUpdated}</td>
+                        <td className="p-3">
+                          <button onClick={() => addToList(row)} className="px-3 py-1 rounded-lg bg-green-600 text-white text-xs hover:bg-green-700 shadow">Add</button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* PAGINATION */}
+            {results.length > resultsPerPage && (
+              <div className="flex justify-center gap-4 mt-4">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded-xl hover:bg-gray-300 disabled:opacity-50">
+                  Previous
+                </button>
+                <span className="px-4 py-2">{currentPage} / {totalPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-200 rounded-xl hover:bg-gray-300 disabled:opacity-50">
+                  Next
+                </button>
+              </div>
+            )}
+          </main>
+
+          {/* SHOPPING LIST SIDEBAR */}
+          {showList && (
+            <div className="fixed inset-0 z-50 flex bg-black/40">
+              <div className="ml-auto w-full max-w-lg h-full bg-white shadow-xl p-5 overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-semibold">Shopping List</h2>
+                  <button onClick={() => setShowList(false)} className="text-gray-600 hover:text-black text-xl">✕</button>
+                </div>
+
+                {shopping.length === 0 ? (
+                  <div className="text-gray-500">Your list is empty.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {shopping.map(item => (
+                      <div key={item.id} className="flex justify-between p-4 border rounded-xl bg-gray-50 shadow-sm">
+                        <div>
+                          <div className="font-semibold">{item.title}</div>
+                          <div className="text-sm text-gray-500">{item.store}</div>
+                          <div className="text-sm font-medium">{fmt(item.price)}</div>
+
+                          <div className="flex items-center gap-2 mt-2">
+                            <button className="px-2 py-1 bg-gray-200 rounded-md" onClick={() => updateQty(item.id, -1)}>-</button>
+                            <span>{item.qty}</span>
+                            <button className="px-2 py-1 bg-gray-200 rounded-md" onClick={() => updateQty(item.id, 1)}>+</button>
+                          </div>
+                        </div>
+
+                        <button onClick={() => removeFromList(item.id)} className="text-red-600 hover:text-red-800 font-medium">Remove</button>
+                      </div>
+                    ))}
+
+                    <div className="border-t pt-4 mt-4">
+                      <div className="text-xl font-semibold flex justify-between">
+                        <span>Total</span>
+                        <span>{fmt(totalCost)}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 space-y-3">
+                      <button className="w-full bg-blue-600 text-white py-2 rounded-xl shadow hover:bg-blue-700" onClick={() => setShowEmailModal(true)}>Email List</button>
+                      <button onClick={exportPDF} className="w-full bg-yellow-500 text-white py-2 rounded-xl shadow hover:bg-yellow-600">Export as PDF</button>
+                      <button className="w-full bg-green-500 text-white py-2 rounded-xl shadow hover:bg-green-600" onClick={exportCSV}>Export as CSV</button>
+                      <button className="w-full bg-gray-200 text-black py-2 rounded-xl shadow hover:bg-gray-300" onClick={() => setShowList(false)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* EMAIL */}
+          {showEmailModal && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md">
+                <h3 className="text-xl font-semibold mb-4">Email Shopping List</h3>
+                <input type="email" className="w-full border rounded-lg px-4 py-2 mb-4 shadow-sm" placeholder="Enter email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+
+                <div className="flex gap-3">
+                  <button className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700" onClick={emailList}>Send Email</button>
+                  <button className="flex-1 bg-gray-200 py-2 rounded-lg hover:bg-gray-300" onClick={() => setShowEmailModal(false)}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

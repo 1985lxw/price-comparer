@@ -2,10 +2,16 @@ import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
+import {registerMiddleware, notFoundHandler, errorHandler,} from './middleware/example.js';
+
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+
+// Register all global middleware (CORS, body parsing, logging, etc.)
+registerMiddleware(app);
+
+//app.use(express.json());
 
 // Connect to Supabase
 const supabase = createClient(
@@ -19,11 +25,25 @@ app.get("/test", (req, res) => {
 });
 
 // Example DB route
-app.get("/api/items", async (req, res) => {
-  const { data, error } = await supabase.from("items").select("*");
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+// app.get("/api/items", async (req, res) => {
+//   const { data, error } = await supabase.from("items").select("*");
+//   if (error) return res.status(500).json({ error: error.message });
+//   res.json(data);
+// });
+
+app.get('/api/prices', async (_req, res, next) => {
+  try {const { data, error } = await supabase.from('prices').select( "*");
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    next(err); // Pass to errorHandler
+  }
 });
+// 404 error handling for any unknown route
+app.use(notFoundHandler);
+
+// Central error handling
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

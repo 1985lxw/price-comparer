@@ -1,0 +1,174 @@
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const STORAGE_KEYS = { auth: 'pc_auth', location: 'pc_location', shopping: 'pc_shopping_list' };
+const saveLS = (k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
+const readLS = (k,f)=>{ try{ const r=localStorage.getItem(k); return r?JSON.parse(r):f; }catch{ return f; } };
+const fmt = n => new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).format(n);
+
+function App() {
+  const [auth, setAuth] = useState(() => readLS(STORAGE_KEYS.auth, { mode: 'guest', user: null }));
+  const [zip, setZip] = useState(() => readLS(STORAGE_KEYS.location, '01003'));
+  const [shopping, setShopping] = useState(() => readLS(STORAGE_KEYS.shopping, []));
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [showList, setShowList] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  useEffect(()=> saveLS(STORAGE_KEYS.location, zip), [zip]);
+  useEffect(()=> saveLS(STORAGE_KEYS.shopping, shopping), [shopping]);
+  useEffect(()=> saveLS(STORAGE_KEYS.auth, auth), [auth]);
+
+  // ---------------------------
+  // Search
+  // ---------------------------
+  async function handleSearch() {
+    if(!query.trim()) return;
+    try {
+      const resp = await fetch(`/api/search?query=${encodeURIComponent(query)}&zipcode=${zip}`);
+      const data = await resp.json();
+      setResults(data);
+    } catch(err) { console.error(err); }
+  }
+
+  // ---------------------------
+  // Shopping list
+  // ---------------------------
+  function addToList(row){ setShopping(prev => prev.find(x=>x.id===row.id) ? prev : [...prev,row]); }
+  function removeFromList(id){ setShopping(prev => prev.filter(x=>x.id!==id)); }
+
+  // ---------------------------
+  // Auth functions
+  // ---------------------------
+  async function signUp() {
+    if(!email || !password) return alert('Email and password required');
+    try {
+      const res = await fetch('/api/auth/sign-up', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if(data.error) return alert(data.error);
+      setAuth({ mode: 'user', user: data.user });
+      setShowLogin(false);
+    } catch(e) { console.error(e); alert('Sign-up failed'); }
+  }
+
+  async function signIn() {
+    if(!email || !password) return alert('Email and password required');
+    try {
+      const res = await fetch('/api/auth/sign-in', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if(data.error) return alert(data.error);
+      setAuth({ mode: 'user', user: data.user });
+      setShowLogin(false);
+    } catch(e) { console.error(e); alert('Sign-in failed'); }
+  }
+
+  function continueAsGuest() {
+    setAuth({ mode: 'guest', user: null });
+    setShowLogin(false);
+  }
+
+  function logout() {
+    setAuth({ mode: 'guest', user: null });
+    saveLS(STORAGE_KEYS.auth, { mode: 'guest', user: null });
+  }
+
+  // ---------------------------
+  // Render
+  // ---------------------------
+  return (
+    <div className="min-h-screen">
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-white">$</div>
+            <div className="text-sm font-semibold">Price Comparer</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="text" className="rounded-2xl border px-3 py-2 text-sm" value={zip} onChange={e=>setZip(e.target.value)} />
+            <button onClick={()=>setShowList(true)}>Shopping List ({shopping.length})</button>
+            {auth.mode==='guest' ? (
+              <button onClick={()=>setShowLogin(true)} className="rounded-2xl border px-4 py-2 text-sm">Sign In / Sign Up</button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="hidden text-sm text-slate-700 sm:block">Hi {auth.user?.email || 'User'}</span>
+                <button onClick={logout} className="rounded-2xl border px-4 py-2 text-sm">Log out</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Search */}
+      <main className="mx-auto max-w-6xl px-4 pb-24 pt-8">
+        <div className="mb-4">
+          <input className="w-full rounded-2xl border px-3 py-2 text-sm" placeholder="Search items" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')handleSearch();}}/>
+          <button onClick={handleSearch}>Search</button>
+        </div>
+        <table className="min-w-full text-left text-sm">
+          <thead>
+            <tr>
+              <th>Store</th><th>Product</th><th>Unit</th><th>Price</th><th>Last updated</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.length===0 ? <tr><td colSpan="6">No results yet.</td></tr> : results.map(row => (
+              <tr key={row.id}>
+                <td>{row.store}</td>
+                <td>{row.title}</td>
+                <td>{row.unitPrice}</td>
+                <td>{fmt(row.price)}</td>
+                <td>{row.lastUpdated}</td>
+                <td><button onClick={()=>addToList(row)}>Add</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </main>
+
+      {/* Shopping list modal */}
+      {showList && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/40">
+          <div className="h-full w-full max-w-lg overflow-y-auto bg-white p-4 shadow-xl">
+            <h2 className="text-lg font-semibold">Shopping List</h2>
+            <button onClick={()=>setShowList(false)}>Close</button>
+            {shopping.length===0 ? <div>Your list is empty.</div> : shopping.map(item=>(
+              <div key={item.id}>{item.title} @ {item.store} - {fmt(item.price)} <button onClick={()=>removeFromList(item.id)}>Remove</button></div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Login / Sign Up modal */}
+      {showLogin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white p-6 rounded shadow max-w-sm w-full">
+            <h2 className="text-lg font-semibold mb-2">Sign In / Sign Up</h2>
+            <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full border px-3 py-2 mb-2 rounded"/>
+            <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full border px-3 py-2 mb-2 rounded"/>
+            <div className="flex justify-between mt-2">
+              <button onClick={signIn} className="px-4 py-2 border rounded">Sign In</button>
+              <button onClick={signUp} className="px-4 py-2 border rounded">Sign Up</button>
+              <button onClick={continueAsGuest} className="px-4 py-2 border rounded">Guest</button>
+            </div>
+            <button onClick={()=>setShowLogin(false)} className="mt-2 text-sm text-gray-500">Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
