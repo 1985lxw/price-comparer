@@ -1,73 +1,74 @@
 import unittest
-from unittest.mock import patch
-import json
-from scrapers.rapidTargetAPI import search_by_keywords, get_nearby_stores, get_product_details
-# run with python -m unittest test_scraper.py
+import os
+import requests
+
+import sys
+import os
+
+# Add the parent directory (price-comparer) to sys.path so that Python can find the scrapers module
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Now you can import your modules
+from scrapers.rapidTargetAPI import get_nearby_stores, search_by_keywords, get_product_details
 
 
-class TestTargetAPI(unittest.TestCase):
+from dotenv import load_dotenv
+# Load environment variables (e.g., RAPIDAPI_KEY, RAPIDAPI_HOST)
+load_dotenv(dotenv_path="./.env")  # Ensure the .env file is set correctly
 
-    @patch("main.requests.get")
-    def test_search_by_keywords(self, mock_get):
-        # Mock response
-        mock_response = unittest.mock.Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {
-                "search": {
-                    "products": [
-                        {"name": "Paper Towels", "price": 500}
-                    ]
-                }
-            }
-        }
-        mock_get.return_value = mock_response
+class TestScraper(unittest.TestCase):
 
-        products = search_by_keywords("paper towels", 1839, output_file=None)
+    # Test for get_nearby_stores (real API call)
+    def test_get_nearby_stores(self):
+        zip_code = '01002'  # Example zip code
+        stores = get_nearby_stores(zip_code)
+
+        # Assertions to check if we got the expected structure
+        self.assertIsInstance(stores, list)
+        if stores:
+            self.assertIn('status', stores[0])
+            self.assertIn('store_id', stores[0])
+            self.assertIn('address', stores[0])
+            
+        self.assertEqual(len(stores), 1)
+        self.assertEqual(stores[0]['status'], 'Open')
+        self.assertEqual(stores[0]['store_id'], '1839')
+        self.assertEqual(stores[0]['address'], '367 Russell St, Hadley, Massachusetts, 01035-9456')
+
+    # Test for search_by_keywords (real API call)
+    def test_search_by_keywords(self):
+        keywords = 'paper towels'  # Example search keyword
+        store_id = '1839'  # Example store ID
+        products = search_by_keywords(keywords, store_id)
+
+        # Assertions to check if we got the expected structure
         self.assertIsInstance(products, list)
-        self.assertEqual(len(products), 1)
-        self.assertIn("name", products[0])
-        self.assertIn("price", products[0])
+        if products:
+            self.assertIn('tcin', products[0])
+            self.assertIn('title', products[0])
+            self.assertIn('buy_url', products[0])
+            self.assertIn('formatted_current_price', products[0])
 
-    @patch("main.requests.get")
-    def test_get_nearby_stores(self, mock_get):
-        # Mock response
-        mock_response = unittest.mock.Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {
-                "stores": [
-                    {"store_id": 1, "name": "Target Amherst", "zipcode": "01002"}
-                ]
-            }
-        }
-        mock_get.return_value = mock_response
+        self.assertEqual(len(products), 24)
 
-        stores = get_nearby_stores("01002", output_file=None)
-        self.assertIsInstance(stores, dict)
-        self.assertIn("stores", stores.get("data", {}))
+    # Test for get_product_details (real API call)
+    def test_get_product_details(self):
+        tcin = '83935763'  # Example product TCIN
+        store_id = '1839'  # Example store ID
+        product_details = get_product_details(tcin, store_id)
 
-    @patch("main.requests.get")
-    def test_get_product_details(self, mock_get):
-        # Mock response
-        mock_response = unittest.mock.Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {
-                "product": {
-                    "product": {"name": "Paper Towels"},
-                    "price": {"current_retail": 500}
-                }
-            }
-        }
-        mock_get.return_value = mock_response
+        # Assertions to check if we got the expected structure
+        self.assertIn('product', product_details)
+        self.assertIn('price', product_details)
+        self.assertIn('formatted_current_price', product_details['price'])
 
-        product = get_product_details("83935763", 3207, output_file=None)
-        self.assertIsInstance(product, dict)
-        self.assertIn("product", product)
-        self.assertIn("price", product)
-        self.assertEqual(product["product"]["name"], "Paper Towels")
-        self.assertEqual(product["price"]["current_retail"], 500)
+        self.assertEqual(len(product_details), 2)
 
-if __name__ == "__main__":
+    # Test if environment variables are correctly loaded
+    def test_api_keys(self):
+        # Check if RAPIDAPI_KEY and RAPIDAPI_HOST are available in the environment
+        self.assertIsNotNone(os.getenv("RAPIDAPI_KEY"), "RAPIDAPI_KEY is missing in .env")
+        self.assertIsNotNone(os.getenv("RAPIDAPI_HOST"), "RAPIDAPI_HOST is missing in .env")
+
+if __name__ == '__main__':
     unittest.main()
