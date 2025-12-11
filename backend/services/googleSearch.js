@@ -1,4 +1,3 @@
-// backend/services/googleSearch.js
 const axios = require('axios');
 const GOOGLE_KEY = process.env.GOOGLE_API_KEY;
 const CX = process.env.GOOGLE_CX;
@@ -18,7 +17,7 @@ async function customSearch(query, options = {}) {
   if (options.site) params.q = `site:${options.site} ${query}`;
   const url = 'https://www.googleapis.com/customsearch/v1';
   const res = await axios.get(url, { params });
-  return res.data; // items[] etc
+  return res.data; // items[] 
 }
 
 module.exports = { customSearch };

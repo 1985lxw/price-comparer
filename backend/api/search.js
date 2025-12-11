@@ -4,7 +4,6 @@ import validateSession from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Optional auth middleware — enable if you want protected search
 // router.use(validateSession);
 
 router.get("/", async (req, res) => {

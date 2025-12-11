@@ -16,7 +16,7 @@ if (!supabaseUrl || !supabaseKey) {
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ---------------------------
-// POST /api/auth/sign-up
+// POST: /api/auth/sign-up
 // ---------------------------
 authRouter.post('/sign-up', async (req, res) => {
   try {
@@ -33,7 +33,7 @@ authRouter.post('/sign-up', async (req, res) => {
     if (getError && getError.code !== 'PGRST116') throw getError; // ignore "no rows" error
     if (existing) return res.status(400).json({ error: 'User already exists' });
 
-    // Hash password
+    // Hashing the password
     const hash = await bcrypt.hash(password, 10);
 
     // Insert new user
@@ -53,7 +53,7 @@ authRouter.post('/sign-up', async (req, res) => {
 });
 
 // ---------------------------
-// POST /api/auth/sign-in
+// POST: /api/auth/sign-in
 // ---------------------------
 authRouter.post('/sign-in', async (req, res) => {
   try {
@@ -69,7 +69,7 @@ authRouter.post('/sign-in', async (req, res) => {
 
     if (error) return res.status(400).json({ error: 'Invalid credentials' });
 
-    // Compare password
+    // Password validation
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
 

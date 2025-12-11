@@ -8,7 +8,7 @@ dotenv.config();
 
 const app = express();
 
-// Register all global middleware (CORS, body parsing, logging, etc.)
+// Register all global middleware (CORS, body parsing, logging)
 registerMiddleware(app);
 
 //app.use(express.json());
@@ -19,17 +19,10 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-// Example test route
+// test route
 app.get("/test", (req, res) => {
   res.send("API is working");
 });
-
-// Example DB route
-// app.get("/api/items", async (req, res) => {
-//   const { data, error } = await supabase.from("items").select("*");
-//   if (error) return res.status(500).json({ error: error.message });
-//   res.json(data);
-// });
 
 app.get('/api/prices', async (_req, res, next) => {
   try {const { data, error } = await supabase.from('prices').select( "*");

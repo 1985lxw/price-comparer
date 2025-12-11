@@ -34,7 +34,7 @@
       const [query, setQuery] = useState("");
       const [results, setResults] = useState([]);
 
-      // ✔ shopping list – EMPTY UNTIL LOADED FROM DB
+      // shopping list – initially empty until loaded from database
       const [shopping, setShopping] = useState([]);
       
       const [cartLoaded, setCartLoaded] = useState(false);   // prevents early save
@@ -51,179 +51,82 @@
       const [currentPage, setCurrentPage] = useState(1);
       const resultsPerPage = 10;
 
-      // -----------------------------------------------------
-      // NEW: Load cart from backend when user logs in
-      // -----------------------------------------------------
-      /*useEffect(() => {
+      
+      // Load cart from datanase when an user signs in 
+      useEffect(() => {
         async function loadCart() {
-          if (!auth?.user?.id) return; // only load for users
-
+          if (!auth?.user?.id) return;
           try {
-            const resp = await fetch("/api/cart/${auth.user.id}");
-            const data = await resp.json();
+              const resp = await fetch(`/api/cart/${auth.user.id}`);
+              const data = await resp.json();
 
-            if (data.items) {
+              if (Array.isArray(data.items)) {
               setShopping(
-                data.items.map(row => ({
-                  id: row.item_id,
-                  title: row.title,
-                  store: row.store,
-                  price: row.price,
-                  qty: row.qty
-                }))
+                  data.items.map(row => ({
+                    id: row.item_id,
+                    title: row.title,
+                    store: row.store,
+                    price: row.price,
+                    qty: row.qty,
+                  }))
               );
-            }
+              }
           } catch (err) {
-            console.error("Failed loading cart:", err);
-          }
+          console.error("Failed loading cart:", err);
+        }
+
+        setCartLoaded(true);   // cart successfully loaded
+        setAllowSaves(true);   // allow saving after load
         }
 
         loadCart();
-      }, [auth]);*/
-      // -----------------------------------------------------
-      // -----------------------------------------------------
-// LOAD SHOPPING CART FROM BACKEND WHEN USER SIGNS IN
-// -----------------------------------------------------
-/*useEffect(() => {
-  async function loadCart() {
-    if (!auth?.user?.id) return; // only load if logged in
+      }, [auth]);
 
-    try {
-      const resp = await fetch(`/api/cart/${auth.user.id}`);
-      const data = await resp.json();
+      
+    // SAFE SAVE — NEVER fires during logout or before load
+    useEffect(() => {
+      if (!auth?.user?.id) return;   // must be logged in
+      if (!cartLoaded) return;       // must finish initial load
+      if (!allowSaves) return;       // block during logout
 
-      if (Array.isArray(data.items)) {
-        setShopping(
-          data.items.map(row => ({
-            id: row.item_id,
-            title: row.title,
-            store: row.store,
-            price: row.price,
-            qty: row.qty,
-          }))
-        );
-      }
-    } catch (err) {
-      console.error("Failed loading cart:", err);
+      fetch("/api/cart/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+        user_id: auth.user.id,
+        items: shopping
+        }),
+      }).catch(err => console.error("Failed to save cart:", err));
+
+    }, [shopping]);
+
+
+    // Save the shopping cart when user logs out
+    useEffect(() => {
+    if (!auth?.user?.id) {
+      setAllowSaves(false);  // disable all saves when logged out
     }
-  }
-
-  loadCart();
-}, [auth]);
-*/
-      // -----------------------------------------------------
-// LOAD CART FROM BACKEND WHEN USER SIGNS IN
-// -----------------------------------------------------
-useEffect(() => {
-  async function loadCart() {
-    if (!auth?.user?.id) return;
-
-    try {
-      const resp = await fetch(`/api/cart/${auth.user.id}`);
-      const data = await resp.json();
-
-      if (Array.isArray(data.items)) {
-        setShopping(
-          data.items.map(row => ({
-            id: row.item_id,
-            title: row.title,
-            store: row.store,
-            price: row.price,
-            qty: row.qty,
-          }))
-        );
-      }
-    } catch (err) {
-      console.error("Failed loading cart:", err);
-    }
-
-    setCartLoaded(true);   // cart successfully loaded
-    setAllowSaves(true);   // allow saving after load
-  }
-
-  loadCart();
-}, [auth]);
-
-      // -----------------------------------------------------
-      // NEW: Save shopping list to backend on changes
-      // -----------------------------------------------------
-      /*useEffect(() => {
-        // only save if logged in
-        if (!auth?.user?.id) return;
-
-        fetch("/api/cart/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: auth.user.id, items: shopping }),
-        }).catch(err => console.error("Failed to save cart:", err));
-
-      }, [shopping]);
-      // -----------------------------------------------------
-      */
-      /*useEffect(() => {
-  // Only save if user is logged in
-  if (!auth?.user?.id) return;
-
-  // Prevent wiping cart on logout
-  if (shopping === null || typeof shopping !== "object") return;
-
-  // Save normally
-  fetch("/api/cart/save", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: auth.user.id, items: shopping }),
-  }).catch(err => console.error("Failed to save cart:", err));
-
-}, [shopping]);*/
-
-// -----------------------------------------------------
-// SAFE SAVE — NEVER fires during logout or before load
-// -----------------------------------------------------
-useEffect(() => {
-  if (!auth?.user?.id) return;   // must be logged in
-  if (!cartLoaded) return;       // must finish initial load
-  if (!allowSaves) return;       // block during logout
-
-  fetch("/api/cart/save", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: auth.user.id,
-      items: shopping
-    }),
-  }).catch(err => console.error("Failed to save cart:", err));
-
-}, [shopping]);
-
-
-// -----------------------------------------------------
-// BLOCK SAVES COMPLETELY WHEN USER LOGS OUT
-// -----------------------------------------------------
-useEffect(() => {
-  if (!auth?.user?.id) {
-    setAllowSaves(false);  // disable all saves when logged out
-  }
-}, [auth]);
+    }, [auth]);
 
 
       
 
-      async function handleSearch() {
-        if (!query.trim()) return;
+    async function handleSearch() {
+      if (!query.trim()) return;
         try {
           const resp = await fetch(`/api/search?query=${encodeURIComponent(query)}&zipcode=${zip}`);
           setResults(await resp.json());
           setCurrentPage(1);
         } catch (err) { console.error(err); }
-      }
+    }
 
-      function applyZip() {
+    function applyZip() {
         setZip(newZip);
         saveLS(STORAGE_KEYS.location, newZip);
         if (query.trim()) handleSearch();
-      }
+    }
 
-      // CART OPERATIONS ONLY (not touching search results)
+      // Shopping list operations 
       function addToList(row) {
         setShopping(prev =>
           prev.find(x => x.id === row.id)

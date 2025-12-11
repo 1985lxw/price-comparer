@@ -3,7 +3,7 @@ import supabase from "../supabaseClient.js";
 
 const router = express.Router();
 
-// ➤ Get user cart
+// Retrieve user cart
 router.get("/:user_id", async (req, res) => {
   const { user_id } = req.params;
 
@@ -17,7 +17,7 @@ router.get("/:user_id", async (req, res) => {
   res.json({ items: data });
 });
 
-// ➤ Save full cart (add/update/delete rows)
+// Save full cart (add/update/delete entries)
 router.post("/save", async (req, res) => {
   const { user_id, items } = req.body;
 

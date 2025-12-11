@@ -1,4 +1,3 @@
-// backend/server.js
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,7 +13,6 @@ const app = express();
 app.use(express.json());
 
 
-// __dirname replacement for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -49,7 +47,6 @@ app.post('/api/email', async (req, res) => {
   }
 
   try {
-    // Create transporter
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT || 587,

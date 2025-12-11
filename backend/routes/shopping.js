@@ -11,7 +11,7 @@ router.post("/save", async (req, res) => {
   }
 
   try {
-    // Clear table first (optional: per user)
+    // Clear table first
     await supabase.from("shopping_list").delete().neq("id", "");
 
     // Insert new rows
