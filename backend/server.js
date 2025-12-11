@@ -13,6 +13,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+
 // __dirname replacement for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +30,13 @@ app.use("/api/search", searchRoutes);
 
 // Export routes (PDF/CSV)
 app.use("/api/export", exportRouter);
+
+// Shopping cart routes
+import shoppingRouter from "./routes/shopping.js";
+app.use("/api/shopping", shoppingRouter);
+
+import cartRouter from "./routes/cart.js";
+app.use("/api/cart", cartRouter);
 
 // ---------------------------
 // EMAIL ROUTE

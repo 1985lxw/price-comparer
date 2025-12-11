@@ -21,7 +21,7 @@ const supabase = createClient(
 
 // Example test route
 app.get("/test", (req, res) => {
-  res.send("API is working ✅");
+  res.send("API is working");
 });
 
 // Example DB route
