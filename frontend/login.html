@@ -1,136 +1,123 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Price Comparer - Sign in or Continue as Guest</title>
-<script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price Comparer - Login</title>
+  <link rel="stylesheet" href="styles.css">
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<style>
-    #googleBtn iframe { max-width: 100% !important; }
-</style>
-</head>
-<body class="min-h-screen bg-slate-50 text-slate-900">
-<header class="border-b border-slate-200 bg-white">
-<div class="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
-<div class="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-white">$</div>
-<div class="text-sm font-semibold">Price Comparer</div>
-</div>
-</header>
+  <script>
+    const STORAGE_KEYS = { auth: 'pc_auth' };
 
+    const saveLS = (k, v) => {
+      try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+    };
 
-<main class="mx-auto max-w-3xl px-4">
-<div class="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
+    async function signUp(event) {
+      event.preventDefault();
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
 
-<!-- Sign in card -->
-<div id='signinCard' class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-<h1 class="mb-1 text-lg font-semibold">Sign in</h1>
-<p class="mb-4 text-sm text-slate-600">Continue with Google to unlock saved searches and other features.</p>
+      const resp = await fetch('/api/auth/sign-up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
 
-<div class="flex justify-center">
-          <div id="googleBtn" class="w-full max-w-full"></div>
-        </div>
+      const data = await resp.json();
+      if (data.error) {
+        alert('Sign-Up Error: ' + data.error);
+      } else {
+        const raw = data.user.email.split("@")[0];
+        const pretty = raw.charAt(0).toUpperCase() + raw.slice(1);
 
-        <p id="googleMsg" class="mt-3 hidden text-xs text-emerald-700">Signed in with Google. Redirecting...</p>
-        <p id="googleErr" class="mt-3 hidden text-xs text-rose-700"></p>
-      </div>
-
-
-<!-- Guest card -->
-<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-<h2 class="mb-1 text-lg font-semibold">Use guest mode</h2>
-<p class="mb-4 text-sm text-slate-600">Browse and compare prices without an account. You can switch to sign in later.</p>
-<button id="guestBtn" class="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400">Continue as guest</button>
-<p id="guestMsg" class="mt-3 hidden text-xs text-emerald-700">Guest mode enabled. Redirecting to the app...</p>
-</div>
-</div>
-</main>
-
-
-<script>
-    const STORAGE_KEY = 'pc_auth';
-    const redirectTarget = './index.html';
-
-    function saveAuth(value) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch (e) {}
-    }
-
-    // Guest mode
-    document.getElementById('guestBtn').addEventListener('click', function () {
-      saveAuth({ mode: 'guest', provider: 'guest', user: null });
-      document.getElementById('guestMsg').classList.remove('hidden');
-      setTimeout(() => { window.location.href = redirectTarget; }, 600);
-    });
-
-    const GOOGLE_CLIENT_ID = "267099792406-ocaqqoqja7ljjs6sm6te5qbdhcc3lft2.apps.googleusercontent.com";
-
-    function decodeJwtPayload(token) {
-      const payload = token.split('.')[1];
-      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-      const json = decodeURIComponent(atob(base64).split('').map(c =>
-        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-      ).join(''));
-      return JSON.parse(json);
-    }
-
-    function onGoogleCredentialResponse(response) {
-      try {
-        const payload = decodeJwtPayload(response.credential);
-        const name = payload.name || payload.given_name || "Google User";
-        const email = payload.email || "";
-
-        saveAuth({
+        saveLS(STORAGE_KEYS.auth, {
           mode: 'user',
-          provider: 'google',
-          user: { name, email },
-          google: { idToken: response.credential }
+          user: { ...data.user, name: pretty }
         });
 
-        document.getElementById('googleMsg').classList.remove('hidden');
-        setTimeout(() => { window.location.href = redirectTarget; }, 600);
-      } catch (e) {
-        const el = document.getElementById('googleErr');
-        el.textContent = "Google sign-in failed. Check your Client ID and allowed origins.";
-        el.classList.remove('hidden');
+        window.location.href = './index.html';
       }
     }
 
-    function renderGoogleButton() {
-      const host = document.getElementById('googleBtn');
-      const card = document.getElementById('signinCard');
-      if (!host || !card) return;
+    async function signIn(event) {
+      event.preventDefault();
+      const email = document.getElementById('signin-email').value;
+      const password = document.getElementById('signin-password').value;
 
-      host.innerHTML = "";
-      const width = Math.max(240, Math.min(420, Math.floor(card.clientWidth - 48)));
-
-      google.accounts.id.renderButton(host, {
-        type: 'standard',
-        theme: 'outline',
-        size: 'large',
-        text: 'continue_with',
-        shape: 'pill',
-        width
+      const resp = await fetch('/api/auth/sign-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       });
+
+      const data = await resp.json();
+      if (data.error) {
+        alert('Sign-In Error: ' + data.error);
+      } else {
+        const raw = data.user.email.split("@")[0];
+        const pretty = raw.charAt(0).toUpperCase() + raw.slice(1);
+
+        saveLS(STORAGE_KEYS.auth, {
+          mode: 'user',
+          user: { ...data.user, name: pretty }
+        });
+
+        window.location.href = './index.html';
+      }
     }
 
-    window.addEventListener('load', () => {
-      if (!window.google || !google.accounts || !google.accounts.id) return;
-
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: onGoogleCredentialResponse,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
-
-      renderGoogleButton();
-
-      window.addEventListener('resize', () => {
-        clearTimeout(window.__pcGoogleBtnTimer);
-        window.__pcGoogleBtnTimer = setTimeout(renderGoogleButton, 100);
-      });
-    });
+    function guestMode() {
+      saveLS(STORAGE_KEYS.auth, { mode: 'guest', user: null });
+      window.location.href = './index.html';
+    }
   </script>
+</head>
+
+<body class="login-body">
+
+  <div class="login-card">
+
+    <h1 class="app-title">Price Comparer</h1>
+
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('signin')">Sign In</button>
+      <button class="tab-button" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <!-- SIGN IN -->
+    <section id="signin" class="tab-content visible">
+      <form onsubmit="signIn(event)">
+        <input id="signin-email" type="email" placeholder="Email" required>
+        <input id="signin-password" type="password" placeholder="Password" required>
+        <button class="primary-btn" type="submit">Sign In</button>
+      </form>
+    </section>
+
+    <!-- SIGN UP -->
+    <section id="signup" class="tab-content">
+      <form onsubmit="signUp(event)">
+        <input id="signup-email" type="email" placeholder="Email" required>
+        <input id="signup-password" type="password" placeholder="Password" required>
+        <button class="primary-btn" type="submit">Create Account</button>
+      </form>
+    </section>
+
+    <div class="divider">Or</div>
+
+    <button class="guest-btn" onclick="guestMode()">Continue as Guest</button>
+
+  </div>
+
+  <script>
+    function switchTab(tab) {
+      document.querySelectorAll(".tab-button").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(sec => sec.classList.remove("visible"));
+
+      document.querySelector(`.${tab === "signin" ? "tab-button:first-child" : "tab-button:last-child"}`).classList.add("active");
+      document.getElementById(tab).classList.add("visible");
+    }
+  </script>
+
 </body>
 </html>

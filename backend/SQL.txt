@@ -32,3 +32,14 @@ CREATE TABLE prices (
   unit_price NUMERIC,
   last_updated TIMESTAMP DEFAULT now()
 );
+
+create table shopping_list (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid,             
+  item_id text not null,
+  title text not null,
+  store text,
+  price numeric,
+  qty int,
+  updated_at timestamptz default now()
+);
