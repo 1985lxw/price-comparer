@@ -1,4 +1,3 @@
-// backend/services/priceAggregator.js
 const { customSearch } = require('./googleSearch');
 const { savePrice, getCachedPrices } = require('./db');
 const axios = require('axios');
@@ -31,17 +30,17 @@ async function fetchJsonLdPrice(url) {
 }
 
 /**
- * Search product across Google CSE and optional site filters,
+ * To earch product across Google CSE and optional site filters,
  * try to extract price and cache into Supabase.
  */
 async function searchProductAcrossStores(productQuery) {
-  // 1) cache check
+  // cache check
   const cached = await getCachedPrices(productQuery);
   if (cached && cached.length) {
     return cached.map(r => ({ title: r.title, price: r.price, source: r.source, link: r.external_link, cached: true }));
   }
 
-  // 2) run CSE global search + site-specific searches
+  // run global search + site-specific searches
   const siteFilters = (process.env.GOOGLE_SEARCH_ENGINE_SITE_FILTERS || '').split(',').map(s => s.trim()).filter(Boolean);
   const candidates = [];
   try {
@@ -60,7 +59,7 @@ async function searchProductAcrossStores(productQuery) {
     }
   }
 
-  // 3) attempt to extract price
+  // attempt to extract price
   const enriched = [];
   const seen = new Set();
   for (const c of candidates) {

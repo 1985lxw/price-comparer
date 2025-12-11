@@ -17,7 +17,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// POST /api/auth/google
+// POST: /api/auth/google
 router.post('/', async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -33,7 +33,7 @@ router.post('/', async (req, res) => {
     const email = payload.email;
     const name = payload.name || payload.given_name || 'Google User';
 
-    // Upsert user in Supabase
+    // Upserting user in Supabase
     const { data, error } = await supabase
       .from('users')
       .upsert({ email }, { onConflict: ['email'] })

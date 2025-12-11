@@ -5,7 +5,7 @@ import express from 'express';
  * Registers global middleware on the Express app.
  */
 export function registerMiddleware(app) {
-  // Enable CORS so the frontend we can call the API.
+  // Enable CORS so in the frontend we can call the API.
   app.use(
     cors({
       origin(origin, callback) {

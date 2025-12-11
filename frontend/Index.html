@@ -30,37 +30,109 @@
       const [auth] = useState(() => readLS(STORAGE_KEYS.auth, { mode: "guest", user: null }));
       const [zip, setZip] = useState(() => readLS(STORAGE_KEYS.location, "01003"));
       const [newZip, setNewZip] = useState(zip);
+
       const [query, setQuery] = useState("");
       const [results, setResults] = useState([]);
-      const [shopping, setShopping] = useState(() => readLS(STORAGE_KEYS.shopping, []));
+
+      // shopping list – initially empty until loaded from database
+      const [shopping, setShopping] = useState([]);
+      
+      const [cartLoaded, setCartLoaded] = useState(false);   // prevents early save
+      const [allowSaves, setAllowSaves] = useState(false);   // blocks save on logout
+
+
+
       const [showList, setShowList] = useState(false);
       const [showEmailModal, setShowEmailModal] = useState(false);
       const [email, setEmail] = useState("");
 
       // --- Pagination & Sorting ---
-      const [sortOrder, setSortOrder] = useState("asc"); // 'asc' or 'desc'
+      const [sortOrder, setSortOrder] = useState("asc");
       const [currentPage, setCurrentPage] = useState(1);
       const resultsPerPage = 10;
 
-      useEffect(() => saveLS(STORAGE_KEYS.shopping, shopping), [shopping]);
+      
+      // Load cart from datanase when an user signs in 
+      useEffect(() => {
+        async function loadCart() {
+          if (!auth?.user?.id) return;
+          try {
+              const resp = await fetch(`/api/cart/${auth.user.id}`);
+              const data = await resp.json();
 
-      async function handleSearch() {
-        if (!query.trim()) return;
+              if (Array.isArray(data.items)) {
+              setShopping(
+                  data.items.map(row => ({
+                    id: row.item_id,
+                    title: row.title,
+                    store: row.store,
+                    price: row.price,
+                    qty: row.qty,
+                  }))
+              );
+              }
+          } catch (err) {
+          console.error("Failed loading cart:", err);
+        }
+
+        setCartLoaded(true);   // cart successfully loaded
+        setAllowSaves(true);   // allow saving after load
+        }
+
+        loadCart();
+      }, [auth]);
+
+      
+    // SAFE SAVE — NEVER fires during logout or before load
+    useEffect(() => {
+      if (!auth?.user?.id) return;   // must be logged in
+      if (!cartLoaded) return;       // must finish initial load
+      if (!allowSaves) return;       // block during logout
+
+      fetch("/api/cart/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+        user_id: auth.user.id,
+        items: shopping
+        }),
+      }).catch(err => console.error("Failed to save cart:", err));
+
+    }, [shopping]);
+
+
+    // Save the shopping cart when user logs out
+    useEffect(() => {
+    if (!auth?.user?.id) {
+      setAllowSaves(false);  // disable all saves when logged out
+    }
+    }, [auth]);
+
+
+      
+
+    async function handleSearch() {
+      if (!query.trim()) return;
         try {
           const resp = await fetch(`/api/search?query=${encodeURIComponent(query)}&zipcode=${zip}`);
           setResults(await resp.json());
-          setCurrentPage(1); // reset to first page
+          setCurrentPage(1);
         } catch (err) { console.error(err); }
-      }
+    }
 
-      function applyZip() {
+    function applyZip() {
         setZip(newZip);
         saveLS(STORAGE_KEYS.location, newZip);
         if (query.trim()) handleSearch();
-      }
+    }
 
+      // Shopping list operations 
       function addToList(row) {
-        setShopping(prev => prev.find(x => x.id === row.id) ? prev : [...prev, { ...row, qty: 1 }]);
+        setShopping(prev =>
+          prev.find(x => x.id === row.id)
+            ? prev
+            : [...prev, { ...row, qty: 1 }]
+        );
       }
 
       function removeFromList(id) {
@@ -68,7 +140,11 @@
       }
 
       function updateQty(id, delta) {
-        setShopping(prev => prev.map(item => item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item));
+        setShopping(prev =>
+          prev.map(item =>
+            item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item
+          )
+        );
       }
 
       function logout() {
@@ -77,32 +153,23 @@
       }
 
       const totalCost = shopping.reduce((sum, i) => sum + i.price * i.qty, 0);
+
       const toggleSort = () => setSortOrder(prev => prev === "asc" ? "desc" : "asc");
 
-      // Sorted & paginated results
-      const sortedResults = [...results].sort((a, b) => sortOrder === "asc" ? a.price - b.price : b.price - a.price);
+      const sortedResults = [...results].sort((a, b) =>
+        sortOrder === "asc" ? a.price - b.price : b.price - a.price
+      );
+
       const totalPages = Math.ceil(sortedResults.length / resultsPerPage);
-      const paginatedResults = sortedResults.slice((currentPage - 1) * resultsPerPage, currentPage * resultsPerPage);
+      const paginatedResults = sortedResults.slice(
+        (currentPage - 1) * resultsPerPage,
+        currentPage * resultsPerPage
+      );
 
       function emailList() {
         alert(`Email sent to: ${email}`);
         setShowEmailModal(false);
         setEmail("");
-      }
-
-      function exportCSV() {
-        let csv = "Store,Product,Price,Qty,Total\n";
-        shopping.forEach(item => {
-          csv += `${item.store},${item.title},${item.price},${item.qty},${item.price * item.qty}\n`;
-        });
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "shopping_list.csv";
-        a.click();
-        URL.revokeObjectURL(url);
-        alert("CSV exported successfully.");
       }
 
       async function exportPDF() {
@@ -119,7 +186,18 @@
         a.download = "shopping_list.pdf";
         a.click();
         window.URL.revokeObjectURL(url);
-        alert("PDF downloaded!");
+      }
+
+      function exportCSV() {
+        let csv = "Store,Product,Price,Qty,Total\n";
+        shopping.forEach(item => {
+          csv += `${item.store},${item.title},${item.price},${item.qty},${item.price * item.qty}\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "shopping_list.csv";
+        a.click();
       }
 
       return (

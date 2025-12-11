@@ -15,28 +15,19 @@ router.post("/pdf", async (req, res) => {
 
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
-
-    // ---------------------------------
-    // Title
-    // ---------------------------------
     doc.fontSize(26).text("Shopping List", { align: "center" });
     doc.moveDown(2);
 
-    // ---------------------------------
     // Table Column Positions
-    // ---------------------------------
     const colDesc = 50;        // Item description
     const colStore = 260;      // Store name
     const colQty = 380;        // Quantity
     const colPrice = 430;      // Price
     const colTotal = 500;      // Total
 
-    // Draw first line
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
 
-    // ---------------------------------
     // Table Header
-    // ---------------------------------
     doc.font("Helvetica-Bold").fontSize(14);
     doc.text("Item Description", colDesc, doc.y + 5);
     doc.text("Store", colStore, doc.y);
@@ -47,9 +38,7 @@ router.post("/pdf", async (req, res) => {
 
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
 
-    // ---------------------------------
     // Table Rows
-    // ---------------------------------
     doc.font("Helvetica").fontSize(12);
 
     let grandTotal = 0;
@@ -88,9 +77,7 @@ router.post("/pdf", async (req, res) => {
       y += 10;
     });
 
-    // ---------------------------------
-    // GRAND TOTAL
-    // ---------------------------------
+    // TOTAL COST
     doc.moveDown(2);
     doc.fontSize(16).font("Helvetica-Bold");
     doc.text(`Grand Total: $${grandTotal.toFixed(2)}`, { align: "right" });
